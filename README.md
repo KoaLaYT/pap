@@ -4,6 +4,19 @@ Course link: [Computer, Enhance!](https://www.computerenhance.com/p/table-of-con
 
 ### 1. Haversine
 
+init python version (Casey's origin):
+
+```bash
+cd haversine-python
+python3 main.py
+
+Result: 10006.813489406335
+Input = 5.872759103775024 seconds
+Math = 5.376621961593628 seconds
+Total = 11.249381065368652 seconds
+Throughput = 888937.7950565754 haversines/second
+```
+
 init go version:
 
 ```bash
