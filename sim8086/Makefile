@@ -1,12 +1,13 @@
 .PHONY: asm decode/single decode/many
 
-all: decode/single decode/many decode/more decode/challenge
+all: decode/single decode/many decode/more decode/challenge decode/add_sub_cmp_jnz
 
 asm:
 	@nasm single_register_mov.asm
 	@nasm many_register_mov.asm
 	@nasm more_movs.asm
 	@nasm challenge_movs.asm
+	@nasm add_sub_cmp_jnz.asm
 
 decode/single: asm
 	@echo ">> single <<"
@@ -44,5 +45,15 @@ decode/challenge: asm
 	@echo "success!"
 	@rm -rf out out.asm
 
+decode/add_sub_cmp_jnz: asm
+	@echo ">> add_sub_cmp_jnz <<"
+	@zig build run -- add_sub_cmp_jnz > out.asm
+	@echo "comparing results..."
+	@nasm out.asm
+	@diff out add_sub_cmp_jnz
+	@echo "success!"
+	@rm -rf out out.asm
+
 clean:
 	rm -rf out out.asm
+	rm -rf single_register_mov many_register_mov more_movs challenge_movs add_sub_cmp_jnz
