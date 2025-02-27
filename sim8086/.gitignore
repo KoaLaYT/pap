@@ -1,8 +1,2 @@
 .zig-cache/
 zig-out/
-
-single_register_mov
-many_register_mov
-more_movs
-challenge_movs
-add_sub_cmp_jnz
