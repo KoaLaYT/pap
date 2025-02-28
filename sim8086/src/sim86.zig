@@ -1,10 +1,12 @@
 const std = @import("std");
+const c = @cImport(@cInclude("stdio.h"));
 
 extern fn Sim86_GetVersion() u32;
 extern fn Sim86_Decode8086Instruction(SourceSize: u32, Source: [*]u8, Dest: *Instruction) void;
 extern fn Sim86_RegisterNameFromOperand(RegAccess: *RegisterAccess) [*:0]const u8;
 extern fn Sim86_MnemonicFromOperationType(Type: OperationType) [*:0]const u8;
 extern fn Sim86_Get8086InstructionTable(Dest: *InstructionTable) void;
+extern fn Sim86_PrintInstruction(Inst: Instruction, Dest: *c.FILE) void;
 
 pub const OperationType = enum(c_int) {
     Op_None,
@@ -200,6 +202,10 @@ pub const Instruction = extern struct {
     Flags: InstructionFlag,
     Operands: [2]InstructionOperand,
     SegmentOverride: u32,
+
+    pub fn debug(self: Instruction) void {
+        Sim86_PrintInstruction(self, c.stdout());
+    }
 };
 
 pub const InstructionBitsUsage = enum(u8) {
