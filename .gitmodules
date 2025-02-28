@@ -1,3 +1,0 @@
-[submodule "sim8086/vendor"]
-	path = sim8086/vendor
-	url = https://github.com/cmuratori/computer_enhance

@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const sim86_dep = b.dependency("sim86", .{});
     const sim86_lib = b.addStaticLibrary(.{
         .name = "sim86",
         .root_source_file = b.path("src/sim86.zig"),
@@ -18,7 +19,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     sim86_lib.addCSourceFile(.{
-        .file = b.path("vendor/perfaware/sim86/sim86_lib.cpp"),
+        .file = sim86_dep.path("perfaware/sim86/sim86_lib.cpp"),
         .flags = &[_][]const u8{},
     });
     sim86_lib.linkLibCpp();

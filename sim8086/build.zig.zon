@@ -1,0 +1,15 @@
+.{
+    .name = "sim8086",
+    .version = "0.0.0",
+    .dependencies = .{
+        .sim86 = .{
+            .url = "git+https://github.com/KoaLaYT/computer_enhance#5a9c13708e1b1490499844d90ae1de25c1da562f",
+            .hash = "122002e5f28c44c2d34b57f10eda047cd7fb6383c557bbbd0f0c89b7002277f7ff98",
+        },
+    },
+    .paths = .{
+        "src",
+        "build.zig",
+        "build.zig.zon",
+    },
+}
