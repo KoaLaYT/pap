@@ -13,7 +13,7 @@ decode: $(DECODES)
 define decode_template =
 decode/$(1): asm/$(1)
 	@echo ">> $(1) <<"
-	@zig build dumpdecode -- $$< > out.asm
+	@zig build decode -- $$< > out.asm
 	@echo "comparing results..."
 	@nasm out.asm
 	@diff out $$<

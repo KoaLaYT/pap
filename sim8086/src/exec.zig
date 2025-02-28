@@ -1,6 +1,6 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
 const sim86 = @import("sim86.zig");
+const util = @import("util.zig");
 
 //  0 {},
 //  1 {"al", "ah", "ax"},
@@ -101,13 +101,6 @@ const Cpu = struct {
     }
 };
 
-fn readBin(allocator: Allocator, bin_file: []const u8) ![]u8 {
-    const f = try std.fs.cwd().openFile(bin_file, .{});
-    defer f.close();
-
-    return f.readToEndAlloc(allocator, 4096);
-}
-
 const testing = std.testing;
 
 test {
@@ -127,10 +120,14 @@ test {
             .input_file = "asm/register_movs",
             .expect = &.{ 4, 3, 2, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0 },
         },
+        .{
+            .input_file = "asm/challenge_register_movs",
+            .expect = &.{ 17425, 13124, 26231, 30600, 17425, 13124, 26231, 30600, 26231, 0, 17425, 13124, 0 },
+        },
     };
 
     for (test_cases) |tt| {
-        const bin = try readBin(allocator, tt.input_file);
+        const bin = try util.readBin(allocator, tt.input_file);
         defer allocator.free(bin);
 
         var cpu = Cpu.init();

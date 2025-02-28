@@ -205,7 +205,8 @@ pub const Instruction = extern struct {
     SegmentOverride: u32,
 
     pub fn debug(self: Instruction) void {
-        Sim86_PrintInstruction(self, c.stderr());
+        Sim86_PrintInstruction(self, c.stdout());
+        _ = c.fflush(c.stdout());
     }
 };
 
