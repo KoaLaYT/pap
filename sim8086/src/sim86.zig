@@ -195,6 +195,7 @@ pub const InstructionFlag = packed struct(u32) {
     // this way "will be init to 0" is safety checked
     _padding: enum(u27) { unset = 0 } = .unset,
 };
+
 pub const Instruction = extern struct {
     Address: u32,
     Size: u32,
