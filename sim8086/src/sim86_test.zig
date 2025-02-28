@@ -279,6 +279,4 @@ test "decode8086Instruction/mnemonicFromOperationType" {
     try std.testing.expectEqual(sim86.OperandType.OperandRegister, decoded.Operands[0].Type);
     try std.testing.expectEqualStrings("bx", sim86.registerNameFromOperand(&(decoded.Operands[0].data.Register)));
     try std.testing.expectEqual(sim86.OperandType.OperandMemory, decoded.Operands[1].Type);
-
-    decoded.debug();
 }
