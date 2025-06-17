@@ -18,6 +18,43 @@ const util = @import("util.zig");
 // 13 {"ip", "ip", "ip"},
 const REGISTERS = 14;
 
+const Flags = struct {
+    // !! This layout is not equal to 8086's manual
+    data: std.bit_set.IntegerBitSet(16),
+
+    const Self = @This();
+
+    fn init() Self {
+        return .{
+            .data = std.bit_set.IntegerBitSet(16).initEmpty(),
+        };
+    }
+
+    fn setZero(self: *Self) void {
+        self.data.set(0);
+    }
+
+    fn clearZero(self: *Self) void {
+        self.data.unset(0);
+    }
+
+    fn isZero(self: Self) bool {
+        return self.data.isSet(0);
+    }
+
+    fn setSign(self: *Self) void {
+        self.data.set(1);
+    }
+
+    fn clearSign(self: *Self) void {
+        self.data.unset(1);
+    }
+
+    fn isSign(self: Self) bool {
+        return self.data.isSet(1);
+    }
+};
+
 const Registers = struct {
     data: [REGISTERS * 2]u8,
 
@@ -68,12 +105,15 @@ const Registers = struct {
 
 const Cpu = struct {
     registers: Registers,
+    flags: Flags,
 
     const Self = @This();
 
     fn init() Self {
-        const registers = Registers.init();
-        return .{ .registers = registers };
+        return .{
+            .registers = Registers.init(),
+            .flags = Flags.init(),
+        };
     }
 
     fn exec(self: *Self, source: []u8) !void {
@@ -86,9 +126,98 @@ const Cpu = struct {
     }
 
     fn execOne(self: *Self, inst: sim86.Instruction) void {
+        switch (inst.Op) {
+            .Op_mov => self.execMov(inst),
+            .Op_add => self.execAdd(inst),
+            .Op_sub => self.execSub(inst),
+            .Op_cmp => self.execCmp(inst),
+            else => unreachable,
+        }
+    }
+
+    fn setFlags(self: *Self, v: u16) void {
+        if (v == 0) {
+            self.flags.setZero();
+        } else {
+            self.flags.clearZero();
+        }
+
+        const iv: i16 = @bitCast(v);
+        if (iv < 0) {
+            self.flags.setSign();
+        } else {
+            self.flags.clearSign();
+        }
+    }
+
+    fn execCmp(self: *Self, inst: sim86.Instruction) void {
         const dst = inst.Operands[0];
         const src = inst.Operands[1];
 
+        if (dst.Type != .OperandRegister) {
+            unreachable;
+        }
+
+        var v: u16 = undefined;
+        if (src.Type == .OperandRegister) {
+            v = self.registers.get(src.data.Register);
+        } else if (src.Type == .OperandImmediate) {
+            v = @intCast(src.data.Immediate.Value);
+        } else {
+            unreachable;
+        }
+
+        v = self.registers.get(dst.data.Register) -% v;
+        self.setFlags(v);
+    }
+
+    fn execSub(self: *Self, inst: sim86.Instruction) void {
+        const dst = inst.Operands[0];
+        const src = inst.Operands[1];
+
+        if (dst.Type != .OperandRegister) {
+            unreachable;
+        }
+
+        var v: u16 = undefined;
+        if (src.Type == .OperandRegister) {
+            v = self.registers.get(src.data.Register);
+        } else if (src.Type == .OperandImmediate) {
+            v = @intCast(src.data.Immediate.Value);
+        } else {
+            unreachable;
+        }
+
+        v = self.registers.get(dst.data.Register) -% v;
+        self.registers.update(dst.data.Register, v);
+        self.setFlags(v);
+    }
+
+    fn execAdd(self: *Self, inst: sim86.Instruction) void {
+        const dst = inst.Operands[0];
+        const src = inst.Operands[1];
+
+        if (dst.Type != .OperandRegister) {
+            unreachable;
+        }
+
+        var v: u16 = undefined;
+        if (src.Type == .OperandRegister) {
+            v = self.registers.get(src.data.Register);
+        } else if (src.Type == .OperandImmediate) {
+            v = @intCast(src.data.Immediate.Value);
+        } else {
+            unreachable;
+        }
+
+        v = self.registers.get(dst.data.Register) +% v;
+        self.registers.update(dst.data.Register, v);
+        self.setFlags(v);
+    }
+
+    fn execMov(self: *Self, inst: sim86.Instruction) void {
+        const dst = inst.Operands[0];
+        const src = inst.Operands[1];
         if (dst.Type == .OperandRegister and src.Type == .OperandImmediate) {
             const v: u16 = @intCast(src.data.Immediate.Value);
             self.registers.update(dst.data.Register, v);
@@ -108,21 +237,35 @@ test {
 
     const TestCase = struct {
         input_file: []const u8,
-        expect: []const u16,
+        expectRegisters: []const u16,
+        expectZero: bool,
+        expectSign: bool,
     };
 
     const test_cases = [_]TestCase{
         .{
-            .input_file = "asm/immediate_movs",
-            .expect = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0 },
+            .input_file = "asm/0043_immediate_movs",
+            .expectRegisters = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 0, 0, 0 },
+            .expectZero = false,
+            .expectSign = false,
         },
         .{
-            .input_file = "asm/register_movs",
-            .expect = &.{ 4, 3, 2, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0 },
+            .input_file = "asm/0044_register_movs",
+            .expectRegisters = &.{ 4, 3, 2, 1, 1, 2, 3, 4, 0, 0, 0, 0, 0 },
+            .expectZero = false,
+            .expectSign = false,
         },
         .{
-            .input_file = "asm/challenge_register_movs",
-            .expect = &.{ 17425, 13124, 26231, 30600, 17425, 13124, 26231, 30600, 26231, 0, 17425, 13124, 0 },
+            .input_file = "asm/0045_challenge_register_movs",
+            .expectRegisters = &.{ 17425, 13124, 26231, 30600, 17425, 13124, 26231, 30600, 26231, 0, 17425, 13124, 0 },
+            .expectZero = false,
+            .expectSign = false,
+        },
+        .{
+            .input_file = "asm/0046_add_sub_cmp",
+            .expectRegisters = &.{ 0, 57602, 3841, 0, 998, 0, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = true,
+            .expectSign = false,
         },
     };
 
@@ -133,10 +276,17 @@ test {
         var cpu = Cpu.init();
         try cpu.exec(bin);
 
+        // check registers
         for (1..REGISTERS) |i| {
             const at = sim86.RegisterAccess{ .Index = @intCast(i), .Offset = 0, .Count = 2 };
             const value = cpu.registers.get(at);
-            try testing.expectEqual(tt.expect[i - 1], value);
+            try testing.expectEqual(tt.expectRegisters[i - 1], value);
         }
+
+        // check zero flags
+        try testing.expectEqual(tt.expectZero, cpu.flags.isZero());
+
+        // check sign flags
+        try testing.expectEqual(tt.expectSign, cpu.flags.isSign());
     }
 }
