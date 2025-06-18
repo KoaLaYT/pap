@@ -106,6 +106,7 @@ const Registers = struct {
 const Cpu = struct {
     registers: Registers,
     flags: Flags,
+    ip: usize,
 
     const Self = @This();
 
@@ -113,15 +114,29 @@ const Cpu = struct {
         return .{
             .registers = Registers.init(),
             .flags = Flags.init(),
+            .ip = 0,
         };
     }
 
     fn exec(self: *Self, source: []u8) !void {
+        var gpa = std.heap.DebugAllocator(.{}).init;
+        defer _ = gpa.deinit();
+        const allocator = gpa.allocator();
+
+        var instructions = std.AutoHashMap(usize, sim86.Instruction).init(allocator);
+        defer instructions.deinit();
+
         var idx: usize = 0;
         while (idx < source.len) {
             const inst = try sim86.decode8086Instruction(source[idx..]);
-            self.execOne(inst);
+            try instructions.put(idx, inst);
             idx += inst.Size;
+        }
+
+        while (self.ip < source.len) {
+            const inst = instructions.get(self.ip) orelse unreachable;
+            self.ip += inst.Size;
+            self.execOne(inst);
         }
     }
 
@@ -131,6 +146,7 @@ const Cpu = struct {
             .Op_add => self.execAdd(inst),
             .Op_sub => self.execSub(inst),
             .Op_cmp => self.execCmp(inst),
+            .Op_jne => self.execJne(inst),
             else => unreachable,
         }
     }
@@ -147,6 +163,22 @@ const Cpu = struct {
             self.flags.setSign();
         } else {
             self.flags.clearSign();
+        }
+    }
+
+    fn execJne(self: *Self, inst: sim86.Instruction) void {
+        const op = inst.Operands[0];
+        if (op.Type != .OperandImmediate) {
+            unreachable;
+        }
+
+        if (!self.flags.isZero()) {
+            const v = op.data.Immediate.Value;
+            if (v < 0) {
+                self.ip -= @abs(v);
+            } else {
+                self.ip += @intCast(v);
+            }
         }
     }
 
@@ -264,6 +296,18 @@ test {
         .{
             .input_file = "asm/0046_add_sub_cmp",
             .expectRegisters = &.{ 0, 57602, 3841, 0, 998, 0, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = true,
+            .expectSign = false,
+        },
+        .{
+            .input_file = "asm/0048_ip_register",
+            .expectRegisters = &.{ 0, 2000, 64736, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = false,
+            .expectSign = true,
+        },
+        .{
+            .input_file = "asm/0049_conditional_jumps",
+            .expectRegisters = &.{ 0, 1030, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
             .expectZero = true,
             .expectSign = false,
         },
