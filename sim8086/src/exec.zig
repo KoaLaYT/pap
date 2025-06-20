@@ -18,43 +18,6 @@ const util = @import("util.zig");
 // 13 {"ip", "ip", "ip"},
 const REGISTERS = 14;
 
-const Flags = struct {
-    // !! This layout is not equal to 8086's manual
-    data: std.bit_set.IntegerBitSet(16),
-
-    const Self = @This();
-
-    fn init() Self {
-        return .{
-            .data = std.bit_set.IntegerBitSet(16).initEmpty(),
-        };
-    }
-
-    fn setZero(self: *Self) void {
-        self.data.set(0);
-    }
-
-    fn clearZero(self: *Self) void {
-        self.data.unset(0);
-    }
-
-    fn isZero(self: Self) bool {
-        return self.data.isSet(0);
-    }
-
-    fn setSign(self: *Self) void {
-        self.data.set(1);
-    }
-
-    fn clearSign(self: *Self) void {
-        self.data.unset(1);
-    }
-
-    fn isSign(self: Self) bool {
-        return self.data.isSet(1);
-    }
-};
-
 const Registers = struct {
     data: [REGISTERS * 2]u8,
 
@@ -103,8 +66,71 @@ const Registers = struct {
     }
 };
 
+const Memory = struct {
+    data: [65536]u8,
+
+    const Self = @This();
+
+    fn init() Self {
+        var data: [65536]u8 = undefined;
+        @memset(&data, 0);
+        return .{
+            .data = data,
+        };
+    }
+
+    fn store(self: *Self, offset: usize, v: u16) void {
+        const lo: u8 = @intCast(v & 0xFF);
+        const hi: u8 = @intCast(v >> 8);
+        self.data[offset] = lo;
+        self.data[offset + 1] = hi;
+    }
+
+    fn load(self: *Self, offset: usize) u16 {
+        return std.mem.readInt(u16, &.{ self.data[offset], self.data[offset + 1] }, .little);
+    }
+};
+
+const Flags = struct {
+    // !! This layout is not equal to 8086's manual
+    data: std.bit_set.IntegerBitSet(16),
+
+    const Self = @This();
+
+    fn init() Self {
+        return .{
+            .data = std.bit_set.IntegerBitSet(16).initEmpty(),
+        };
+    }
+
+    fn setZero(self: *Self) void {
+        self.data.set(0);
+    }
+
+    fn clearZero(self: *Self) void {
+        self.data.unset(0);
+    }
+
+    fn isZero(self: Self) bool {
+        return self.data.isSet(0);
+    }
+
+    fn setSign(self: *Self) void {
+        self.data.set(1);
+    }
+
+    fn clearSign(self: *Self) void {
+        self.data.unset(1);
+    }
+
+    fn isSign(self: Self) bool {
+        return self.data.isSet(1);
+    }
+};
+
 const Cpu = struct {
     registers: Registers,
+    memory: Memory,
     flags: Flags,
     ip: usize,
 
@@ -113,6 +139,7 @@ const Cpu = struct {
     fn init() Self {
         return .{
             .registers = Registers.init(),
+            .memory = Memory.init(),
             .flags = Flags.init(),
             .ip = 0,
         };
@@ -256,8 +283,35 @@ const Cpu = struct {
         } else if (dst.Type == .OperandRegister and src.Type == .OperandRegister) {
             const v = self.registers.get(src.data.Register);
             self.registers.update(dst.data.Register, v);
+        } else if (dst.Type == .OperandMemory and src.Type == .OperandImmediate) {
+            const v: u16 = @intCast(src.data.Immediate.Value);
+            const offset = self.parseMemoryAddressExp(dst.data.Address);
+            self.memory.store(offset, v);
+        } else if (dst.Type == .OperandRegister and src.Type == .OperandMemory) {
+            const offset = self.parseMemoryAddressExp(src.data.Address);
+            const v = self.memory.load(offset);
+            self.registers.update(dst.data.Register, v);
+        } else if (dst.Type == .OperandMemory and src.Type == .OperandRegister) {
+            const v = self.registers.get(src.data.Register);
+            const offset = self.parseMemoryAddressExp(dst.data.Address);
+            self.memory.store(offset, v);
         } else {
-            unreachable;
+            std.debug.panic("unknown instruction {}\n", .{inst});
+        }
+    }
+
+    fn parseMemoryAddressExp(self: *Self, address: sim86.EffectiveAddressExpression) usize {
+        if (address.Terms[0].Register.Index == 0 and address.Terms[1].Register.Index == 0) {
+            return @intCast(address.Displacement);
+        } else if (address.Terms[0].Register.Index > 0 and address.Terms[1].Register.Index == 0) {
+            const offset: i32 = @intCast(self.registers.get(address.Terms[0].Register));
+            return @intCast(offset + address.Displacement);
+        } else if (address.Terms[0].Register.Index > 0 and address.Terms[1].Register.Index > 0) {
+            const offset1 = self.registers.get(address.Terms[0].Register);
+            const offset2 = self.registers.get(address.Terms[1].Register);
+            return offset1 + offset2;
+        } else {
+            std.debug.panic("{} {}\n", .{ address.Terms[0], address.Terms[1] });
         }
     }
 };
@@ -308,6 +362,18 @@ test {
         .{
             .input_file = "asm/0049_conditional_jumps",
             .expectRegisters = &.{ 0, 1030, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = true,
+            .expectSign = false,
+        },
+        .{
+            .input_file = "asm/0051_memory_mov",
+            .expectRegisters = &.{ 0, 1, 2, 10, 0, 4, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = false,
+            .expectSign = false,
+        },
+        .{
+            .input_file = "asm/0052_memory_add_loop",
+            .expectRegisters = &.{ 0, 6, 4, 6, 0, 1000, 6, 0, 0, 0, 0, 0, 0 },
             .expectZero = true,
             .expectSign = false,
         },
