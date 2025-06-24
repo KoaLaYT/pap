@@ -377,6 +377,12 @@ test {
             .expectZero = true,
             .expectSign = false,
         },
+        .{
+            .input_file = "asm/0054_draw_rectangle",
+            .expectRegisters = &.{ 0, 0, 64, 64, 0, 16640, 0, 0, 0, 0, 0, 0, 0 },
+            .expectZero = true,
+            .expectSign = false,
+        },
     };
 
     for (test_cases) |tt| {
