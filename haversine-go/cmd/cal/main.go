@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math"
+	"koalayt/haversine-go/reference"
 	"os"
 	"time"
 )
 
-const EarchRadius float64 = 6371.0
+const EarchRadius float64 = 6372.8
 
 type Pair struct {
 	X0 float64 `json:"x0"`
@@ -17,19 +17,8 @@ type Pair struct {
 	Y1 float64 `json:"y1"`
 }
 
-func radian(degree float64) float64 {
-	return degree * math.Pi / 180.0
-}
-
-// https://en.wikipedia.org/wiki/Haversine_formula
 func (p Pair) haversineDistance() float64 {
-	dy := radian(p.Y1 - p.Y0)
-	dx := radian(p.X1 - p.X0)
-	y0 := radian(p.Y0)
-	y1 := radian(p.Y1)
-
-	rootTerm := math.Pow(math.Sin(dy/2), 2) + math.Cos(y0)*math.Cos(y1)*math.Pow(math.Sin(dx/2), 2)
-	return 2 * EarchRadius * math.Asin(math.Sqrt(rootTerm))
+	return reference.Haversine(p.X0, p.Y0, p.X1, p.Y1, EarchRadius)
 }
 
 type Data struct {
