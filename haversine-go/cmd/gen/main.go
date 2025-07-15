@@ -111,7 +111,7 @@ func main() {
 		anwser := reference.Haversine(x0, y0, x1, y1, EarchRadius)
 		total += anwser
 
-		_ = must2(jsonWriter.WriteString(fmt.Sprintf("    {\"x0\":%.6f, \"y0\":%.6f, \"x1\":%.6f, \"y1\":%.6f}", x0, y0, x1, y1)))
+		_ = must2(jsonWriter.WriteString(fmt.Sprintf("    {\"x0\":%.9f, \"y0\":%.9f, \"x1\":%.9f, \"y1\":%.9f}", x0, y0, x1, y1)))
 		if i < size-1 {
 			_ = must2(jsonWriter.WriteString(",\n"))
 		} else {
